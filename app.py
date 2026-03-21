@@ -70,23 +70,15 @@ tab1, tab2 = st.tabs(["🧪 EEG Mode", "📷 Camera Mode (Disabled)"])
 with tab1:
     st.header("EEG-Based Mental State Analysis")
 
-    # EEG subject ve file seç
-    subjects = [f for f in os.listdir(DATA_PATH) if os.path.isdir(os.path.join(DATA_PATH, f))]
-    if not subjects:
-        st.error("EEG data not found! Upload your dataset in 'data/' folder.")
-        st.stop()
-
-    # Subject seçimi dropdown
-    subject = st.selectbox("Select Subject", subjects)
-    subject_path = os.path.join(DATA_PATH, subject)  # Burada DATA_PATH kullanıyoruz
-    files = [f for f in os.listdir(subject_path) if f.endswith(".edf")]
+    # EEG dosyaları doğrudan DATA_PATH içinde
+    files = [f for f in os.listdir(DATA_PATH) if f.endswith(".edf")]
     if not files:
-        st.error(f"No EEG files found for {subject}")
+        st.error("EEG data not found! Upload your dataset in 'data/' folder.")
         st.stop()
 
     # File seçimi dropdown
     file = st.selectbox("Select EEG File", files)
-    file_path = os.path.join(subject_path, file)  # Tam path
+    file_path = os.path.join(DATA_PATH, file)
 
     if st.button("Run Analysis"):
         # EEG dosyasını oku
@@ -122,7 +114,6 @@ with tab1:
                     padding:20px; border-radius:15px; color:white; text-align:center'>
             <h2 style='font-size:2em'>{state}</h2>
             <p>{advice_map[state]}</p>
-            <p>Subject: {subject}</p>
             <p>File: {file}</p>
         </div>
         """, unsafe_allow_html=True)
@@ -131,7 +122,7 @@ with tab1:
         st.subheader("📊 EEG Signal")
         fig, ax = plt.subplots()
         ax.plot(signal)
-        ax.set_title(f"EEG Signal (Channel 0) - {subject}/{file}")
+        ax.set_title(f"EEG Signal (Channel 0) - {file}")
         st.pyplot(fig)
 
         # Breathing Exercise
@@ -148,7 +139,6 @@ with tab1:
             "time": datetime.now().strftime("%H:%M"),
             "state": state,
             "advice": advice_map[state],
-            "subject": subject,
             "file": file
         })
 
