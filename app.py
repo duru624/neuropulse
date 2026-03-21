@@ -146,8 +146,77 @@ with tab1:
 # CAMERA MODE
 # ===========================
 with tab2:
-    st.header("Facial-Based Mental State Detection")
-    st.warning("Camera Mode disabled in Streamlit Cloud deployment. Local testing required for mediapipe.")
+    st.header("📷 Facial-Based Mental State Detection")
+
+    img_file_buffer = st.camera_input("Capture Image")
+
+    if img_file_buffer:
+        # Görüntüyü aç
+        from PIL import Image
+        import numpy as np
+        import mediapipe as mp
+
+        image = Image.open(img_file_buffer)
+        frame = np.array(image)
+
+        # Mediapipe Face Mesh
+        mp_face_mesh = mp.solutions.face_mesh
+        face_mesh = mp_face_mesh.FaceMesh(static_image_mode=True)
+        results = face_mesh.process(frame)
+
+        if results.multi_face_landmarks:
+            lm = results.multi_face_landmarks[0].landmark
+
+            # Basit oranlar ile mental state tahmini
+            # göz kapak açıklığı
+            eye_ratio = abs(lm[159].y - lm[145].y)
+            # ağız açıklığı
+            mouth_ratio = abs(lm[13].y - lm[14].y)
+
+            if eye_ratio < 0.015:
+                state = "Tired"
+            elif mouth_ratio > 0.03:
+                state = "Stressed"
+            else:
+                state = "Calm"
+
+            advice_map = {
+                "Calm": "Keep doing what you're doing 🌿",
+                "Stressed": "Take a breathing exercise 🫁",
+                "Tired": "Consider rest or sleep 🛌"
+            }
+
+            color_map = {"Calm": "#4CAF50", "Stressed": "#F44336", "Tired": "#FFC107"}
+
+            # Emotion Card
+            st.subheader("🧠 Emotion Card")
+            st.markdown(f"""
+            <div style='background-color:{color_map[state]};
+                        padding:20px; border-radius:15px; color:white; text-align:center'>
+                <h2 style='font-size:2em'>{state}</h2>
+                <p>{advice_map[state]}</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # History kaydı
+            st.session_state.users[st.session_state.current_user].append({
+                "mode": "Camera",
+                "time": datetime.now().strftime("%H:%M"),
+                "state": state,
+                "advice": advice_map[state]
+            })
+
+            st.success("Analysis complete!")
+
+        else:
+            st.warning("Face not detected. Try again!")
+
+    # CAMERA HISTORY
+    st.subheader("📜 Camera Mode History")
+    history = [h for h in st.session_state.users[st.session_state.current_user] if h["mode"] == "Camera"]
+    if history:
+        for i, h in enumerate(history[::-1]):
+            st.write(f"{i+1}. State: {h['state']}, Advice: {h['advice']}, Time: {h['time']}")
 
 # ===========================
 # HISTORY
