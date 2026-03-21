@@ -212,15 +212,6 @@ with tab2:  # EEG tabı zaten tab1, burası tab2
         })
 
 # ===========================
-# HISTORY (Test On Me)
-# ===========================
-st.subheader("📜 History")
-history = st.session_state.users[st.session_state.current_user]
-if history:
-    for i, h in enumerate(history[::-1]):
-            st.write(f"{i+1}. Mode: Test On Me, State: {h['state']}, Advice: {h['advice']}, Heart Rate: {h['heart_rate']}, BP: {h['blood_pressure']}, Time: {h['time']}")
-
-# ===========================
 # HISTORY
 # ===========================
 st.subheader("📜 History")
