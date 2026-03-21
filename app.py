@@ -1,8 +1,15 @@
 import streamlit as st
+import os
 import random
 import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime
+from PIL import Image
+
+# -------------------------
+# CONFIG
+# -------------------------
+DATA_PATH = "data"  # EEG dataset klasörü
 
 st.set_page_config(page_title="NeuroPulse", layout="wide")
 
@@ -21,7 +28,6 @@ st.sidebar.title("Account")
 username = st.sidebar.text_input("Username")
 
 col1, col2 = st.sidebar.columns(2)
-
 if col1.button("Login"):
     if username in st.session_state.users:
         st.session_state.current_user = username
@@ -57,77 +63,83 @@ if st.session_state.current_user is None:
 st.title("🧠 NeuroPulse Dashboard")
 st.write("Logged in as:", st.session_state.current_user)
 
-tab1, tab2 = st.tabs(["🧪 EEG Mode", "📷 Camera Mode (Disabled)"])
+tab1, tab2 = st.tabs(["🧪 EEG Mode", "📷 Camera Mode"])
 
-# ==================================================
+# ===========================
 # EEG MODE
-# ==================================================
+# ===========================
 with tab1:
     st.header("EEG-Based Mental State Simulation")
 
     if st.button("Run Analysis"):
-        prediction = random.choice(["normal", "tired", "stressed"])
-        advice_map = {
-            "normal": "Maintain your current routine.",
-            "tired": "Consider rest or sleep.",
-            "stressed": "Take a break and regulate breathing."
-        }
-        colors = {
-            "normal": "#4CAF50",
-            "tired": "#FFC107",
-            "stressed": "#F44336"
-        }
+        # Random EEG file seç
+        folders = [f for f in os.listdir(DATA_PATH) if os.path.isdir(os.path.join(DATA_PATH,f))]
+        subject = random.choice(folders)
+        subject_path = os.path.join(DATA_PATH, subject)
+        files = [f for f in os.listdir(subject_path) if f.endswith(".edf")]
+        file = random.choice(files)
 
+        # Fake EEG sinyali (sadece demo)
+        signal = np.sin(np.linspace(0,10,500)) + np.random.rand(500)*0.5
+
+        # Random mental state
+        state = random.choice(["Calm", "Stress", "Anxious"])
+        advice_map = {
+            "Calm":"Keep doing what you're doing 🌿",
+            "Stress":"Take a breathing exercise 🫁",
+            "Anxious":"Take a short walk 🚶"
+        }
+        color_map = {"Calm":"#4CAF50","Stress":"#F44336","Anxious":"#FFC107"}
+
+        # Emotion Card
+        st.subheader("🧠 Emotion Card")
         st.markdown(f"""
-        <div style="background:{colors[prediction]};
-                    padding:40px;
-                    border-radius:20px;
-                    text-align:center;
-                    color:white;
-                    font-size:36px;
-                    font-weight:bold;">
-            {prediction.upper()}
+        <div style='background-color:{color_map[state]};
+                    padding:20px; border-radius:15px; color:white; text-align:center'>
+            <h2 style='font-size:2em'>{state}</h2>
+            <p>{advice_map[state]}</p>
+            <p>Subject: {subject}</p>
+            <p>File: {file}</p>
         </div>
         """, unsafe_allow_html=True)
 
-        st.info(advice_map[prediction])
-
-        # Fake EEG Signal
-        signal = np.sin(np.linspace(0, 10, 500)) + np.random.rand(500)*0.5
+        # EEG Graph
+        st.subheader("📊 EEG Signal")
         fig, ax = plt.subplots()
         ax.plot(signal)
         st.pyplot(fig)
 
         # Breathing Exercise
         st.subheader("🫁 Breathing Exercise")
-        st.write("Follow the animation below:")
         for i in range(3):
             st.write("Inhale... 🌬️")
             st.write("Hold... ✋")
             st.write("Exhale... 🍃")
         st.success("Done!")
 
-        # Save history
+        # SAVE HISTORY
         st.session_state.users[st.session_state.current_user].append({
-            "time": datetime.now().strftime("%H:%M"),
-            "state": prediction
+            "mode":"dataset",
+            "time":datetime.now().strftime("%H:%M"),
+            "state":state,
+            "advice":advice_map[state],
+            "subject":subject,
+            "file":file
         })
 
-    # History / Trend
-    history = st.session_state.users[st.session_state.current_user]
-    if history:
-        st.subheader("Trend")
-        mapping = {"normal": 0, "tired": 1, "stressed": 2}
-        y = [mapping[h["state"]] for h in history]
-        x = list(range(len(history)))
-        fig, ax = plt.subplots()
-        ax.plot(x, y, marker="o")
-        ax.set_yticks([0,1,2])
-        ax.set_yticklabels(["normal","tired","stressed"])
-        st.pyplot(fig)
-
-# ==================================================
+# ===========================
 # CAMERA MODE
-# ==================================================
+# ===========================
 with tab2:
-    st.warning("Camera Mode disabled in this deployment. EEG Mode works 100%")
+    st.header("Facial-Based Mental State Detection")
+    st.warning("Camera Mode requires mediapipe and OpenCV locally, currently disabled in Cloud.")
+    # Buraya lokal testte mediapipe ile yüz analizi eklenebilir
+
+# ===========================
+# HISTORY
+# ===========================
+st.subheader("📜 History")
+history = st.session_state.users[st.session_state.current_user]
+if history:
+    for i,h in enumerate(history[::-1]):
+        st.write(f"{i+1}. Mode: {h['mode']}, State: {h['state']}, Advice: {h['advice']}, Time: {h['time']}")
