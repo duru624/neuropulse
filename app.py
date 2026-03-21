@@ -5,8 +5,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import mne  # EEG dosyalarını okumak için
 
-
-        
 # -------------------------
 # CONFIG
 # -------------------------
@@ -21,6 +19,10 @@ if "users" not in st.session_state:
     st.session_state.users = {}
 if "current_user" not in st.session_state:
     st.session_state.current_user = None
+if "history_EEG" not in st.session_state:
+    st.session_state.history_EEG = {}
+if "history_TestOnMe" not in st.session_state:
+    st.session_state.history_TestOnMe = {}
 
 # -------------------------
 # SIDEBAR AUTH
@@ -40,6 +42,8 @@ if col2.button("Register"):
     if username and username not in st.session_state.users:
         st.session_state.users[username] = []
         st.session_state.current_user = username
+        st.session_state.history_EEG[username] = []
+        st.session_state.history_TestOnMe[username] = []
         st.sidebar.success("Account created")
     else:
         st.sidebar.error("Invalid username")
@@ -64,7 +68,7 @@ if st.session_state.current_user is None:
 st.title("🧠 NeuroPulse Dashboard")
 st.write("Logged in as:", st.session_state.current_user)
 
-tab1, tab2 = st.tabs(["🧪 EEG Mode", "📷 Camera Mode (Disabled)"])
+tab1, tab2 = st.tabs(["🧪 EEG Mode", "📝 Test On Me"])
 
 # ===========================
 # EEG MODE
@@ -72,26 +76,22 @@ tab1, tab2 = st.tabs(["🧪 EEG Mode", "📷 Camera Mode (Disabled)"])
 with tab1:
     st.header("EEG-Based Mental State Analysis")
 
-    # EEG dosyaları doğrudan DATA_PATH içinde
+    # EEG dosyaları
     files = [f for f in os.listdir(DATA_PATH) if f.endswith(".edf")]
     if not files:
-        st.error("EEG data not found! Upload your dataset in 'data/' folder.")
+        st.error("EEG data not found! Upload your .edf files in 'data/' folder.")
         st.stop()
 
-    # File seçimi dropdown
     file = st.selectbox("Select EEG File", files)
     file_path = os.path.join(DATA_PATH, file)
 
     if st.button("Run Analysis"):
-        # EEG dosyasını oku
         raw = mne.io.read_raw_edf(file_path, preload=True, verbose=False)
-        signal = raw.get_data()[0]  # 0. kanalı alıyoruz
+        signal = raw.get_data()[0]  # 0. kanal
 
-        # FFT ile frekans spektrumu
+        # FFT ile alpha/beta hesaplama
         fft_vals = np.fft.rfft(signal)
         fft_freq = np.fft.rfftfreq(len(signal), 1/raw.info['sfreq'])
-
-        # Basit alpha/beta oranına dayalı mental state
         alpha_power = np.sum(np.abs(fft_vals[(fft_freq >= 8) & (fft_freq <= 12)]))
         beta_power = np.sum(np.abs(fft_vals[(fft_freq >= 12) & (fft_freq <= 30)]))
 
@@ -136,51 +136,78 @@ with tab1:
         st.success("Done!")
 
         # Save history
-        st.session_state.users[st.session_state.current_user].append({
-            "mode": "EEG",
+        st.session_state.history_EEG[st.session_state.current_user].append({
             "time": datetime.now().strftime("%H:%M"),
             "state": state,
             "advice": advice_map[state],
             "file": file
         })
 
+    # EEG History
+    st.subheader("📜 EEG History")
+    history = st.session_state.history_EEG[st.session_state.current_user]
+    if history:
+        for i, h in enumerate(history[::-1]):
+            st.write(f"{i+1}. File: {h['file']}, State: {h['state']}, Advice: {h['advice']}, Time: {h['time']}")
+
 # ===========================
 # TEST ON ME MODE
 # ===========================
 with tab2:
-    st.header("📝 Test On Me (Live)")
+    st.header("Test On Me (Manual Input Simulation)")
 
-    # Kamera input
-    img = st.camera_input("Capture your face")
-    
-    if img:
-        # mediapipe ile yüz landmark analizi
-        # face_expression_score hesapla
-        face_expression_score = analyze_face_expression(img)
-    
-    # Nabız input (ble cihazı veya local serial)
-    heart_rate = st.number_input("Heart Rate (BPM)", min_value=40, max_value=200, value=70)
-    normalized_hr_score = (heart_rate - 60)/40  # basit normalize
-    
-    if img or heart_rate:
-        # Mental state tahmini
-        total_score = face_expression_score + normalized_hr_score
-        if total_score > 1.5:
-            state = "Stressed"
-        elif total_score < 0.5:
-            state = "Calm"
-        else:
-            state = "Anxious"
-        
-        # Advice ve history kaydı
-        advice_map = {...}
-        st.markdown(...)
-        st.session_state.history_TestOnMe[user].append({...})
-# ===========================
-# HISTORY
-# ===========================
-st.subheader("📜 History")
-history = st.session_state.users[st.session_state.current_user]
-if history:
-    for i, h in enumerate(history[::-1]):
-        st.write(f"{i+1}. Mode: {h['mode']}, State: {h['state']}, Advice: {h['advice']}, Time: {h['time']}")
+    st.write("Simulate your mental state using manual input or heart rate.")
+
+    hr = st.number_input("Enter your current heart rate (bpm)", 50, 120, 70)
+    stress_level = st.slider("How stressed do you feel?", 0, 10, 5)
+
+    # Simple formula to combine heart rate and stress slider
+    if hr > 100 or stress_level > 7:
+        state = "Stressed"
+    elif hr < 70 and stress_level < 4:
+        state = "Calm"
+    else:
+        state = "Anxious"
+
+    advice_map = {
+        "Calm": "Keep doing what you're doing 🌿",
+        "Stressed": "Take a breathing exercise 🫁",
+        "Anxious": "Take a short walk 🚶"
+    }
+    color_map = {"Calm": "#4CAF50", "Stressed": "#F44336", "Anxious": "#FFC107"}
+
+    if st.button("Analyze My Input"):
+        st.subheader("🧠 Emotion Card")
+        st.markdown(f"""
+        <div style='background-color:{color_map[state]};
+                    padding:20px; border-radius:15px; color:white; text-align:center'>
+            <h2 style='font-size:2em'>{state}</h2>
+            <p>{advice_map[state]}</p>
+            <p>Heart rate: {hr} bpm</p>
+            <p>Stress level: {stress_level}/10</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Breathing Exercise
+        st.subheader("🫁 Breathing Exercise")
+        for i in range(3):
+            st.write("Inhale... 🌬️")
+            st.write("Hold... ✋")
+            st.write("Exhale... 🍃")
+        st.success("Done!")
+
+        # Save history
+        st.session_state.history_TestOnMe[st.session_state.current_user].append({
+            "time": datetime.now().strftime("%H:%M"),
+            "state": state,
+            "advice": advice_map[state],
+            "hr": hr,
+            "stress_level": stress_level
+        })
+
+    # Test On Me History
+    st.subheader("📜 Test On Me History")
+    history = st.session_state.history_TestOnMe[st.session_state.current_user]
+    if history:
+        for i, h in enumerate(history[::-1]):
+            st.write(f"{i+1}. State: {h['state']}, Advice: {h['advice']}, HR: {h['hr']} bpm, Stress: {h['stress_level']}/10, Time: {h['time']}")
