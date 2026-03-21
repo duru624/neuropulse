@@ -145,72 +145,35 @@ with tab1:
 # ===========================
 # TEST ON ME MODE
 # ===========================
-with tab2:  # EEG tabı zaten tab1, burası tab2
-    st.header("🧪 Test On Me")
+with tab2:
+    st.header("📝 Test On Me (Live)")
 
-    st.write("Answer a few questions and optionally enter your heart rate / blood pressure:")
-
-    # Mental state sorusu
-    feeling = st.selectbox(
-        "How do you feel right now?",
-        ["Calm", "Tired", "Stressed", "Anxious"]
-    )
-
-    # Optional biyometrik veriler
-    heart_rate = st.number_input("Heart rate (bpm)", min_value=30, max_value=200, value=70)
-    systolic_bp = st.number_input("Systolic BP (mmHg)", min_value=80, max_value=200, value=120)
-    diastolic_bp = st.number_input("Diastolic BP (mmHg)", min_value=50, max_value=150, value=80)
-
-    if st.button("Run Analysis (Test On Me)"):
-        # Basit mantık: kullanıcı hissini ve nabız/tansiyonu kullanarak mental state tahmini
-        # Örneğin, yüksek heart_rate > 100 → Stressed
-        state = feeling
-        if heart_rate > 100 or systolic_bp > 140:
+    # Kamera input
+    img = st.camera_input("Capture your face")
+    
+    if img:
+        # mediapipe ile yüz landmark analizi
+        # face_expression_score hesapla
+        face_expression_score = analyze_face_expression(img)
+    
+    # Nabız input (ble cihazı veya local serial)
+    heart_rate = st.number_input("Heart Rate (BPM)", min_value=40, max_value=200, value=70)
+    normalized_hr_score = (heart_rate - 60)/40  # basit normalize
+    
+    if img or heart_rate:
+        # Mental state tahmini
+        total_score = face_expression_score + normalized_hr_score
+        if total_score > 1.5:
             state = "Stressed"
-        elif feeling == "Tired":
-            state = "Tired"
-        elif feeling == "Anxious":
-            state = "Anxious"
-        else:
+        elif total_score < 0.5:
             state = "Calm"
-
-        # Advice map
-        advice_map = {
-            "Calm": "Keep doing what you're doing 🌿",
-            "Tired": "Consider resting or taking a short nap 🛌",
-            "Stressed": "Try a breathing exercise 🫁",
-            "Anxious": "Take a short walk 🚶"
-        }
-
-        color_map = {
-            "Calm": "#4CAF50",
-            "Tired": "#FFC107",
-            "Stressed": "#F44336",
-            "Anxious": "#FF9800"
-        }
-
-        # Emotion Card
-        st.subheader("🧠 Emotion Card")
-        st.markdown(f"""
-        <div style='background-color:{color_map[state]};
-                    padding:20px; border-radius:15px; color:white; text-align:center'>
-            <h2 style='font-size:2em'>{state}</h2>
-            <p>{advice_map[state]}</p>
-            <p>Heart Rate: {heart_rate} bpm</p>
-            <p>Blood Pressure: {systolic_bp}/{diastolic_bp} mmHg</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # Save history
-        st.session_state.users[st.session_state.current_user].append({
-            "mode": "Test On Me",
-            "time": datetime.now().strftime("%H:%M"),
-            "state": state,
-            "advice": advice_map[state],
-            "heart_rate": heart_rate,
-            "blood_pressure": f"{systolic_bp}/{diastolic_bp}"
-        })
-
+        else:
+            state = "Anxious"
+        
+        # Advice ve history kaydı
+        advice_map = {...}
+        st.markdown(...)
+        st.session_state.history_TestOnMe[user].append({...})
 # ===========================
 # HISTORY
 # ===========================
