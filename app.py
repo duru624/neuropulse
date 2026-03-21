@@ -71,13 +71,13 @@ with tab1:
     st.header("EEG-Based Mental State Analysis")
 
     # EEG subject ve file seç
-    subjects = [f for f in os.listdir(DATA_PATH) if os.path.isdir(os.path.join(DATA_PATH, f))]
+    subjects = [f for f in os.listdir(data) if os.path.isdir(os.path.join(data, f))]
     if not subjects:
         st.error("EEG data not found! Upload your dataset in 'data/' folder.")
         st.stop()
 
     subject = st.selectbox("Select Subject", subjects)
-    subject_path = os.path.join(DATA_PATH, subject)
+    subject_path = os.path.join(data, subject)
     files = [f for f in os.listdir(subject_path) if f.endswith(".edf")]
     if not files:
         st.error(f"No EEG files found for {subject}")
