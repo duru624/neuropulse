@@ -143,80 +143,85 @@ with tab1:
         })
 
 # ===========================
-# CAMERA MODE
+# TEST ON ME MODE
 # ===========================
-with tab2:
-    st.header("📷 Facial-Based Mental State Detection")
+with tab2:  # EEG tabı zaten tab1, burası tab2
+    st.header("🧪 Test On Me")
 
-    img_file_buffer = st.camera_input("Capture Image")
+    st.write("Answer a few questions and optionally enter your heart rate / blood pressure:")
 
-    if img_file_buffer:
-        # Görüntüyü aç
-        from PIL import Image
-        import numpy as np
-        import mediapipe as mp
+    # Mental state sorusu
+    feeling = st.selectbox(
+        "How do you feel right now?",
+        ["Calm", "Tired", "Stressed", "Anxious"]
+    )
 
-        image = Image.open(img_file_buffer)
-        frame = np.array(image)
+    # Optional biyometrik veriler
+    heart_rate = st.number_input("Heart rate (bpm)", min_value=30, max_value=200, value=70)
+    systolic_bp = st.number_input("Systolic BP (mmHg)", min_value=80, max_value=200, value=120)
+    diastolic_bp = st.number_input("Diastolic BP (mmHg)", min_value=50, max_value=150, value=80)
 
-        # Mediapipe Face Mesh
-        mp_face_mesh = mp.solutions.face_mesh
-        face_mesh = mp_face_mesh.FaceMesh(static_image_mode=True)
-        results = face_mesh.process(frame)
-
-        if results.multi_face_landmarks:
-            lm = results.multi_face_landmarks[0].landmark
-
-            # Basit oranlar ile mental state tahmini
-            # göz kapak açıklığı
-            eye_ratio = abs(lm[159].y - lm[145].y)
-            # ağız açıklığı
-            mouth_ratio = abs(lm[13].y - lm[14].y)
-
-            if eye_ratio < 0.015:
-                state = "Tired"
-            elif mouth_ratio > 0.03:
-                state = "Stressed"
-            else:
-                state = "Calm"
-
-            advice_map = {
-                "Calm": "Keep doing what you're doing 🌿",
-                "Stressed": "Take a breathing exercise 🫁",
-                "Tired": "Consider rest or sleep 🛌"
-            }
-
-            color_map = {"Calm": "#4CAF50", "Stressed": "#F44336", "Tired": "#FFC107"}
-
-            # Emotion Card
-            st.subheader("🧠 Emotion Card")
-            st.markdown(f"""
-            <div style='background-color:{color_map[state]};
-                        padding:20px; border-radius:15px; color:white; text-align:center'>
-                <h2 style='font-size:2em'>{state}</h2>
-                <p>{advice_map[state]}</p>
-            </div>
-            """, unsafe_allow_html=True)
-
-            # History kaydı
-            st.session_state.users[st.session_state.current_user].append({
-                "mode": "Camera",
-                "time": datetime.now().strftime("%H:%M"),
-                "state": state,
-                "advice": advice_map[state]
-            })
-
-            st.success("Analysis complete!")
-
+    if st.button("Run Analysis (Test On Me)"):
+        # Basit mantık: kullanıcı hissini ve nabız/tansiyonu kullanarak mental state tahmini
+        # Örneğin, yüksek heart_rate > 100 → Stressed
+        state = feeling
+        if heart_rate > 100 or systolic_bp > 140:
+            state = "Stressed"
+        elif feeling == "Tired":
+            state = "Tired"
+        elif feeling == "Anxious":
+            state = "Anxious"
         else:
-            st.warning("Face not detected. Try again!")
+            state = "Calm"
 
-    # CAMERA HISTORY
-    st.subheader("📜 Camera Mode History")
-    history = [h for h in st.session_state.users[st.session_state.current_user] if h["mode"] == "Camera"]
-    if history:
-        for i, h in enumerate(history[::-1]):
-            st.write(f"{i+1}. State: {h['state']}, Advice: {h['advice']}, Time: {h['time']}")
+        # Advice map
+        advice_map = {
+            "Calm": "Keep doing what you're doing 🌿",
+            "Tired": "Consider resting or taking a short nap 🛌",
+            "Stressed": "Try a breathing exercise 🫁",
+            "Anxious": "Take a short walk 🚶"
+        }
+
+        color_map = {
+            "Calm": "#4CAF50",
+            "Tired": "#FFC107",
+            "Stressed": "#F44336",
+            "Anxious": "#FF9800"
+        }
+
+        # Emotion Card
+        st.subheader("🧠 Emotion Card")
+        st.markdown(f"""
+        <div style='background-color:{color_map[state]};
+                    padding:20px; border-radius:15px; color:white; text-align:center'>
+            <h2 style='font-size:2em'>{state}</h2>
+            <p>{advice_map[state]}</p>
+            <p>Heart Rate: {heart_rate} bpm</p>
+            <p>Blood Pressure: {systolic_bp}/{diastolic_bp} mmHg</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Save history
+        st.session_state.users[st.session_state.current_user].append({
+            "mode": "Test On Me",
+            "time": datetime.now().strftime("%H:%M"),
+            "state": state,
+            "advice": advice_map[state],
+            "heart_rate": heart_rate,
+            "blood_pressure": f"{systolic_bp}/{diastolic_bp}"
+        })
+
+# ===========================
+# HISTORY (EEG + Test On Me)
+# ===========================
+st.subheader("📜 History")
+history = st.session_state.users[st.session_state.current_user]
+if history:
+    for i, h in enumerate(history[::-1]):
+        if h["mode"] == "EEG":
+            st.write(f"{i+1}. Mode: EEG, State: {h['state']}, Advice: {h['advice']}, Subject/File: {h['subject']}/{h['file']}, Time: {h['time']}")
+        else:
+            st.write(f"{i+1}. Mode: Test On Me, State: {h['state']}, Advice: {h['advice']}, Heart Rate: {h['heart_rate']}, BP: {h['blood_pressure']}, Time: {h['time']}")
 
 # ===========================
 # HISTORY
