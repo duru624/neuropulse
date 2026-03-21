@@ -5,6 +5,33 @@ import numpy as np
 import matplotlib.pyplot as plt
 import mne  # EEG dosyalarını okumak için
 
+import mediapipe as mp
+import numpy as np
+from PIL import Image
+
+mp_face = mp.solutions.face_mesh
+face_mesh = mp_face.FaceMesh(static_image_mode=True)
+
+def analyze_face_expression(img):
+    """
+    img: st.camera_input ile alınan PIL image
+    return: float, 0-1 arasında face_expression_score
+    """
+    image = np.array(img)
+    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+    
+    results = face_mesh.process(image)
+    
+    if results.multi_face_landmarks:
+        lm = results.multi_face_landmarks[0].landmark
+        # Basit örnek: göz açıklığı
+        eye_ratio = abs(lm[159].y - lm[145].y)
+        mouth_ratio = abs(lm[13].y - lm[14].y)
+        score = eye_ratio*5 + mouth_ratio*10  # basit linear kombinasyon
+        return score
+    else:
+        return 0.5  # face bulunamazsa orta değer
+        
 # -------------------------
 # CONFIG
 # -------------------------
