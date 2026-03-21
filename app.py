@@ -66,7 +66,7 @@ if st.session_state.current_user is None:
 # -------------------------
 # MAIN UI
 # -------------------------
-st.title("🧠 NeuroPulse Dashboard")
+st.title("🧠 NeuroPulse ")
 st.write("Logged in as:", st.session_state.current_user)
 
 tab1, tab2 = st.tabs(["🧪 EEG Mode", "📝 Test On Me (Advanced)"])
