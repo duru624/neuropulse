@@ -1,10 +1,9 @@
 import streamlit as st
 import os
-import random
+from datetime import datetime
 import numpy as np
 import matplotlib.pyplot as plt
-from datetime import datetime
-from PIL import Image
+import mne  # EEG dosyalarını okumak için
 
 # -------------------------
 # CONFIG
@@ -63,33 +62,56 @@ if st.session_state.current_user is None:
 st.title("🧠 NeuroPulse Dashboard")
 st.write("Logged in as:", st.session_state.current_user)
 
-tab1, tab2 = st.tabs(["🧪 EEG Mode", "📷 Camera Mode"])
+tab1, tab2 = st.tabs(["🧪 EEG Mode", "📷 Camera Mode (Disabled)"])
 
 # ===========================
 # EEG MODE
 # ===========================
 with tab1:
-    st.header("EEG-Based Mental State Simulation")
+    st.header("EEG-Based Mental State Analysis")
+
+    # EEG subject ve file seç
+    subjects = [f for f in os.listdir(DATA_PATH) if os.path.isdir(os.path.join(DATA_PATH, f))]
+    if not subjects:
+        st.error("EEG data not found! Upload your dataset in 'data/' folder.")
+        st.stop()
+
+    subject = st.selectbox("Select Subject", subjects)
+    subject_path = os.path.join(DATA_PATH, subject)
+    files = [f for f in os.listdir(subject_path) if f.endswith(".edf")]
+    if not files:
+        st.error(f"No EEG files found for {subject}")
+        st.stop()
+
+    file = st.selectbox("Select EEG File", files)
+    file_path = os.path.join(subject_path, file)
 
     if st.button("Run Analysis"):
-        # Random EEG file seç
-        folders = [f for f in os.listdir(DATA_PATH) if os.path.isdir(os.path.join(DATA_PATH,f))]
-        subject = random.choice(folders)
-        subject_path = os.path.join(DATA_PATH, subject)
-        files = [f for f in os.listdir(subject_path) if f.endswith(".edf")]
-        file = random.choice(files)
+        # EEG dosyasını oku
+        raw = mne.io.read_raw_edf(file_path, preload=True, verbose=False)
+        signal = raw.get_data()[0]  # 0. kanalı alıyoruz
 
-        # Fake EEG sinyali (sadece demo)
-        signal = np.sin(np.linspace(0,10,500)) + np.random.rand(500)*0.5
+        # FFT ile frekans spektrumu
+        fft_vals = np.fft.rfft(signal)
+        fft_freq = np.fft.rfftfreq(len(signal), 1/raw.info['sfreq'])
 
-        # Random mental state
-        state = random.choice(["Calm", "Stress", "Anxious"])
+        # Basit alpha/beta oranına dayalı mental state
+        alpha_power = np.sum(np.abs(fft_vals[(fft_freq >= 8) & (fft_freq <= 12)]))
+        beta_power = np.sum(np.abs(fft_vals[(fft_freq >= 12) & (fft_freq <= 30)]))
+
+        if beta_power > alpha_power * 1.2:
+            state = "Stressed"
+        elif alpha_power > beta_power:
+            state = "Calm"
+        else:
+            state = "Anxious"
+
         advice_map = {
-            "Calm":"Keep doing what you're doing 🌿",
-            "Stress":"Take a breathing exercise 🫁",
-            "Anxious":"Take a short walk 🚶"
+            "Calm": "Keep doing what you're doing 🌿",
+            "Stressed": "Take a breathing exercise 🫁",
+            "Anxious": "Take a short walk 🚶"
         }
-        color_map = {"Calm":"#4CAF50","Stress":"#F44336","Anxious":"#FFC107"}
+        color_map = {"Calm": "#4CAF50", "Stressed": "#F44336", "Anxious": "#FFC107"}
 
         # Emotion Card
         st.subheader("🧠 Emotion Card")
@@ -107,6 +129,7 @@ with tab1:
         st.subheader("📊 EEG Signal")
         fig, ax = plt.subplots()
         ax.plot(signal)
+        ax.set_title("EEG Signal (Channel 0)")
         st.pyplot(fig)
 
         # Breathing Exercise
@@ -117,14 +140,14 @@ with tab1:
             st.write("Exhale... 🍃")
         st.success("Done!")
 
-        # SAVE HISTORY
+        # Save history
         st.session_state.users[st.session_state.current_user].append({
-            "mode":"dataset",
-            "time":datetime.now().strftime("%H:%M"),
-            "state":state,
-            "advice":advice_map[state],
-            "subject":subject,
-            "file":file
+            "mode": "EEG",
+            "time": datetime.now().strftime("%H:%M"),
+            "state": state,
+            "advice": advice_map[state],
+            "subject": subject,
+            "file": file
         })
 
 # ===========================
@@ -132,8 +155,7 @@ with tab1:
 # ===========================
 with tab2:
     st.header("Facial-Based Mental State Detection")
-    st.warning("Camera Mode requires mediapipe and OpenCV locally, currently disabled in Cloud.")
-    # Buraya lokal testte mediapipe ile yüz analizi eklenebilir
+    st.warning("Camera Mode disabled in Streamlit Cloud deployment. Local testing required for mediapipe.")
 
 # ===========================
 # HISTORY
@@ -141,5 +163,5 @@ with tab2:
 st.subheader("📜 History")
 history = st.session_state.users[st.session_state.current_user]
 if history:
-    for i,h in enumerate(history[::-1]):
+    for i, h in enumerate(history[::-1]):
         st.write(f"{i+1}. Mode: {h['mode']}, State: {h['state']}, Advice: {h['advice']}, Time: {h['time']}")
