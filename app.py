@@ -71,20 +71,22 @@ with tab1:
     st.header("EEG-Based Mental State Analysis")
 
     # EEG subject ve file seç
-    subjects = [f for f in os.listdir(data) if os.path.isdir(os.path.join(data, f))]
+    subjects = [f for f in os.listdir(DATA_PATH) if os.path.isdir(os.path.join(DATA_PATH, f))]
     if not subjects:
         st.error("EEG data not found! Upload your dataset in 'data/' folder.")
         st.stop()
 
+    # Subject seçimi dropdown
     subject = st.selectbox("Select Subject", subjects)
-    subject_path = os.path.join(data, subject)
+    subject_path = os.path.join(DATA_PATH, subject)  # Burada DATA_PATH kullanıyoruz
     files = [f for f in os.listdir(subject_path) if f.endswith(".edf")]
     if not files:
         st.error(f"No EEG files found for {subject}")
         st.stop()
 
+    # File seçimi dropdown
     file = st.selectbox("Select EEG File", files)
-    file_path = os.path.join(subject_path, file)
+    file_path = os.path.join(subject_path, file)  # Tam path
 
     if st.button("Run Analysis"):
         # EEG dosyasını oku
@@ -129,7 +131,7 @@ with tab1:
         st.subheader("📊 EEG Signal")
         fig, ax = plt.subplots()
         ax.plot(signal)
-        ax.set_title("EEG Signal (Channel 0)")
+        ax.set_title(f"EEG Signal (Channel 0) - {subject}/{file}")
         st.pyplot(fig)
 
         # Breathing Exercise
