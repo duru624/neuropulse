@@ -72,79 +72,118 @@ st.write("Logged in as:", st.session_state.current_user)
 tab1, tab2 = st.tabs(["🧪 EEG Mode", "📝 Test On Me"])
 
 # ===========================
-# EEG MODE
+# EEG MODE (FIXED + SMART)
 # ===========================
 with tab1:
     st.header("EEG-Based Mental State Analysis")
 
-    # EEG file listesi
-    files = [f for f in os.listdir(DATA_PATH) if f.endswith(".edf")]
-    if not files:
-        st.error("EEG data not found! Upload your .edf files in 'data/' folder.")
+    # 🔄 Refresh butonu
+    if st.button("🔄 Refresh Data"):
+        st.rerun()
+
+    # 📂 data klasöründen tüm .edf dosyaları al
+    if not os.path.exists(DATA_PATH):
+        st.error("Data folder not found!")
         st.stop()
 
-    file = st.selectbox("Select EEG File", files)
+    files = [f for f in os.listdir(DATA_PATH) if f.endswith(".edf")]
+
+    if not files:
+        st.error("No EEG (.edf) files found in data folder.")
+        st.stop()
+
+    # 🎲 RANDOM DOSYA SEÇ
+    import random
+    file = random.choice(files)
     file_path = os.path.join(DATA_PATH, file)
 
-    if st.button("Run Analysis"):
-        # EEG dosyasını oku
-        raw = mne.io.read_raw_edf(file_path, preload=True, verbose=False)
-        signal = raw.get_data()[0]  # 0. kanal
+    st.info(f"📂 Selected file: {file}")
 
-        # FFT ile frekans spektrumu
+    if st.button("Run Analysis"):
+        raw = mne.io.read_raw_edf(file_path, preload=True, verbose=False)
+        signal = raw.get_data()[0]
+
+        # 📊 FFT ANALYSIS
         fft_vals = np.fft.rfft(signal)
         fft_freq = np.fft.rfftfreq(len(signal), 1/raw.info['sfreq'])
 
-        # Basit alpha/beta oranına dayalı mental state
-        alpha_power = np.sum(np.abs(fft_vals[(fft_freq >= 8) & (fft_freq <= 12)]))
-        beta_power = np.sum(np.abs(fft_vals[(fft_freq >= 12) & (fft_freq <= 30)]))
+        # 🔬 Band power hesapla
+        delta = np.sum(np.abs(fft_vals[(fft_freq >= 0.5) & (fft_freq < 4)]))
+        theta = np.sum(np.abs(fft_vals[(fft_freq >= 4) & (fft_freq < 8)]))
+        alpha = np.sum(np.abs(fft_vals[(fft_freq >= 8) & (fft_freq < 12)]))
+        beta = np.sum(np.abs(fft_vals[(fft_freq >= 12) & (fft_freq < 30)]))
 
-        if beta_power > alpha_power * 1.2:
+        total = delta + theta + alpha + beta
+
+        # normalize
+        delta /= total
+        theta /= total
+        alpha /= total
+        beta /= total
+
+        # 🧠 DAHA AKILLI CLASSIFICATION
+        if beta > 0.35:
             state = "Stressed"
-        elif alpha_power > beta_power:
+        elif alpha > 0.35:
             state = "Calm"
+        elif theta > 0.30:
+            state = "Drowsy"
         else:
             state = "Anxious"
 
         advice_map = {
             "Calm": "Keep doing what you're doing 🌿",
             "Stressed": "Take a breathing exercise 🫁",
-            "Anxious": "Take a short walk 🚶"
+            "Anxious": "Take a short walk 🚶",
+            "Drowsy": "You might need rest 😴"
         }
-        color_map = {"Calm": "#4CAF50", "Stressed": "#F44336", "Anxious": "#FFC107"}
 
-        # Emotion Card
+        color_map = {
+            "Calm": "#4CAF50",
+            "Stressed": "#F44336",
+            "Anxious": "#FFC107",
+            "Drowsy": "#2196F3"
+        }
+
+        # 🧠 Emotion Card
         st.subheader("🧠 Emotion Card")
         st.markdown(f"""
         <div style='background-color:{color_map[state]};
-                    padding:20px; border-radius:15px; color:white; text-align:center'>
-            <h2 style='font-size:2em'>{state}</h2>
+                    padding:25px; border-radius:20px; color:white; text-align:center'>
+            <h1>{state}</h1>
             <p>{advice_map[state]}</p>
-            <p>File: {file}</p>
+            <p><b>File:</b> {file}</p>
         </div>
         """, unsafe_allow_html=True)
 
-        # EEG Graph
+        # 📊 EEG GRAPH
         st.subheader("📊 EEG Signal")
         fig, ax = plt.subplots()
-        ax.plot(signal)
-        ax.set_title(f"EEG Signal (Channel 0) - {file}")
+        ax.plot(signal[:2000])  # performans için kısa
+        ax.set_title("EEG Signal Preview")
         st.pyplot(fig)
 
-        # Breathing Exercise
-        st.subheader("🫁 Breathing Exercise")
-        for i in range(3):
-            st.write("Inhale for 4 seconds 🌬️")
-            st.write("Hold your breath for 7 seconds ✋")
-            st.write("Exhale for 8 seconds 🍃")
-        st.success("Done!")
+        # 📊 Band Power Visualization
+        st.subheader("🧬 Brain Wave Distribution")
+        st.bar_chart({
+            "Delta": [delta],
+            "Theta": [theta],
+            "Alpha": [alpha],
+            "Beta": [beta]
+        })
 
-        # Save history
+        # 🫁 Breathing
+        st.subheader("🫁 Breathing Exercise")
+        st.write("Inhale 4 sec → Hold 4 sec → Exhale 6 sec")
+        st.progress(33)
+        st.progress(66)
+        st.progress(100)
+
+        # 💾 Save history
         st.session_state.users[st.session_state.current_user].append({
             "mode": "EEG",
             "time": datetime.now().strftime("%H:%M"),
             "state": state,
-            "advice": advice_map[state],
             "file": file
         })
 
