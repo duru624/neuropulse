@@ -69,7 +69,7 @@ if st.session_state.current_user is None:
 st.title("🧠 NeuroPulse ")
 st.write("Logged in as:", st.session_state.current_user)
 
-tab1, tab2 = st.tabs(["🧪 EEG Mode", "📝 Test On Me (Advanced)"])
+tab1, tab2 = st.tabs(["🧪 EEG Mode", "📝 Test On Me"])
 
 # ===========================
 # EEG MODE
@@ -134,9 +134,9 @@ with tab1:
         # Breathing Exercise
         st.subheader("🫁 Breathing Exercise")
         for i in range(3):
-            st.write("Inhale... 🌬️")
-            st.write("Hold... ✋")
-            st.write("Exhale... 🍃")
+            st.write("Inhale for 4 seconds 🌬️")
+            st.write("Hold your breath for 7 seconds ✋")
+            st.write("Exhale for 8 seconds 🍃")
         st.success("Done!")
 
         # Save history
@@ -152,7 +152,7 @@ with tab1:
 # TEST ON ME (ADVANCED)
 # ===========================
 with tab2:
-    st.header("📝 Test On Me (Advanced Mental State Input)")
+    st.header("📝 Test On Me ")
     st.write("Answer the questions below to analyze your mental state:")
 
     hr = st.number_input("Current heart rate (bpm)", 50, 120, 70)
