@@ -72,16 +72,14 @@ st.write("Logged in as:", st.session_state.current_user)
 tab1, tab2 = st.tabs(["🧪 EEG Mode", "📝 Test On Me"])
 
 # ===========================
-# EEG MODE (FIXED + SMART)
+# EEG MODE (FINAL FIX)
 # ===========================
 with tab1:
     st.header("EEG-Based Mental State Analysis")
 
-    # 🔄 Refresh butonu
-    if st.button("🔄 Refresh Data"):
-        st.rerun()
+    import random
 
-    # 📂 data klasöründen tüm .edf dosyaları al
+    # 📂 Data kontrol
     if not os.path.exists(DATA_PATH):
         st.error("Data folder not found!")
         st.stop()
@@ -89,103 +87,107 @@ with tab1:
     files = [f for f in os.listdir(DATA_PATH) if f.endswith(".edf")]
 
     if not files:
-        st.error("No EEG (.edf) files found in data folder.")
+        st.error("No EEG files found in data folder.")
         st.stop()
 
-    # 🎲 RANDOM DOSYA SEÇ
-    import random
-    file = random.choice(files)
+    # ✅ RANDOM FILE SADECE BUTONA BASILINCA SEÇİLSİN
+    if "selected_file" not in st.session_state:
+        st.session_state.selected_file = None
+
+    if st.button("🎲 Select Random EEG + Analyze"):
+        st.session_state.selected_file = random.choice(files)
+
+    # Eğer henüz seçilmediyse
+    if st.session_state.selected_file is None:
+        st.info("Click the button to analyze a random EEG file.")
+        st.stop()
+
+    file = st.session_state.selected_file
     file_path = os.path.join(DATA_PATH, file)
 
-    st.info(f"📂 Selected file: {file}")
+    st.success(f"📂 Selected File: {file}")
 
-    if st.button("Run Analysis"):
-        raw = mne.io.read_raw_edf(file_path, preload=True, verbose=False)
-        signal = raw.get_data()[0]
+    # ===========================
+    # ANALYSIS
+    # ===========================
+    raw = mne.io.read_raw_edf(file_path, preload=True, verbose=False)
+    signal = raw.get_data()[0]
 
-        # 📊 FFT ANALYSIS
-        fft_vals = np.fft.rfft(signal)
-        fft_freq = np.fft.rfftfreq(len(signal), 1/raw.info['sfreq'])
+    # 📊 FFT
+    fft_vals = np.abs(np.fft.rfft(signal))
+    fft_freq = np.fft.rfftfreq(len(signal), 1/raw.info['sfreq'])
 
-        # 🔬 Band power hesapla
-        delta = np.sum(np.abs(fft_vals[(fft_freq >= 0.5) & (fft_freq < 4)]))
-        theta = np.sum(np.abs(fft_vals[(fft_freq >= 4) & (fft_freq < 8)]))
-        alpha = np.sum(np.abs(fft_vals[(fft_freq >= 8) & (fft_freq < 12)]))
-        beta = np.sum(np.abs(fft_vals[(fft_freq >= 12) & (fft_freq < 30)]))
+    # 🔬 BAND POWER (mean ile alıyoruz daha stabil)
+    delta = np.mean(fft_vals[(fft_freq >= 0.5) & (fft_freq < 4)])
+    theta = np.mean(fft_vals[(fft_freq >= 4) & (fft_freq < 8)])
+    alpha = np.mean(fft_vals[(fft_freq >= 8) & (fft_freq < 12)])
+    beta = np.mean(fft_vals[(fft_freq >= 12) & (fft_freq < 30)])
 
-        total = delta + theta + alpha + beta
+    # 🧠 NORMALIZATION (çok kritik)
+    total = delta + theta + alpha + beta
+    delta /= total
+    theta /= total
+    alpha /= total
+    beta /= total
 
-        # normalize
-        delta /= total
-        theta /= total
-        alpha /= total
-        beta /= total
+    # 🔥 DAHA DOĞRU CLASSIFICATION
+    if beta > alpha and beta > theta:
+        state = "Stressed"
+    elif alpha > beta and alpha > theta:
+        state = "Calm"
+    elif theta > alpha:
+        state = "Drowsy"
+    else:
+        state = "Anxious"
 
-        # 🧠 DAHA AKILLI CLASSIFICATION
-        if beta > 0.35:
-            state = "Stressed"
-        elif alpha > 0.35:
-            state = "Calm"
-        elif theta > 0.30:
-            state = "Drowsy"
-        else:
-            state = "Anxious"
+    # 🧠 UI
+    advice_map = {
+        "Calm": "Keep doing what you're doing 🌿",
+        "Stressed": "Take a breathing exercise 🫁",
+        "Anxious": "Take a short walk 🚶",
+        "Drowsy": "You might need rest 😴"
+    }
 
-        advice_map = {
-            "Calm": "Keep doing what you're doing 🌿",
-            "Stressed": "Take a breathing exercise 🫁",
-            "Anxious": "Take a short walk 🚶",
-            "Drowsy": "You might need rest 😴"
-        }
+    color_map = {
+        "Calm": "#4CAF50",
+        "Stressed": "#F44336",
+        "Anxious": "#FFC107",
+        "Drowsy": "#2196F3"
+    }
 
-        color_map = {
-            "Calm": "#4CAF50",
-            "Stressed": "#F44336",
-            "Anxious": "#FFC107",
-            "Drowsy": "#2196F3"
-        }
+    # 🧠 Emotion Card
+    st.markdown(f"""
+    <div style='background-color:{color_map[state]};
+                padding:30px; border-radius:20px; color:white; text-align:center'>
+        <h1>{state}</h1>
+        <p>{advice_map[state]}</p>
+        <p><b>File:</b> {file}</p>
+    </div>
+    """, unsafe_allow_html=True)
 
-        # 🧠 Emotion Card
-        st.subheader("🧠 Emotion Card")
-        st.markdown(f"""
-        <div style='background-color:{color_map[state]};
-                    padding:25px; border-radius:20px; color:white; text-align:center'>
-            <h1>{state}</h1>
-            <p>{advice_map[state]}</p>
-            <p><b>File:</b> {file}</p>
-        </div>
-        """, unsafe_allow_html=True)
+    # 📊 EEG GRAPH
+    st.subheader("📊 EEG Signal")
+    fig, ax = plt.subplots()
+    ax.plot(signal[:2000])
+    ax.set_title("EEG Preview")
+    st.pyplot(fig)
 
-        # 📊 EEG GRAPH
-        st.subheader("📊 EEG Signal")
-        fig, ax = plt.subplots()
-        ax.plot(signal[:2000])  # performans için kısa
-        ax.set_title("EEG Signal Preview")
-        st.pyplot(fig)
+    # 📊 Band Graph
+    st.subheader("🧬 Brain Wave Distribution")
+    st.bar_chart({
+        "Delta": [delta],
+        "Theta": [theta],
+        "Alpha": [alpha],
+        "Beta": [beta]
+    })
 
-        # 📊 Band Power Visualization
-        st.subheader("🧬 Brain Wave Distribution")
-        st.bar_chart({
-            "Delta": [delta],
-            "Theta": [theta],
-            "Alpha": [alpha],
-            "Beta": [beta]
-        })
-
-        # 🫁 Breathing
-        st.subheader("🫁 Breathing Exercise")
-        st.write("Inhale 4 sec → Hold 4 sec → Exhale 6 sec")
-        st.progress(33)
-        st.progress(66)
-        st.progress(100)
-
-        # 💾 Save history
-        st.session_state.users[st.session_state.current_user].append({
-            "mode": "EEG",
-            "time": datetime.now().strftime("%H:%M"),
-            "state": state,
-            "file": file
-        })
+    # 💾 Save history
+    st.session_state.users[st.session_state.current_user].append({
+        "mode": "EEG",
+        "time": datetime.now().strftime("%H:%M"),
+        "state": state,
+        "file": file
+    })
 
 # ===========================
 # TEST ON ME (ADVANCED)
